@@ -49,11 +49,29 @@ def _run_shell_command(cmd, output=None, raise_on_error=True):
     if out[0] is not None:
         return out[0].strip().decode()
 
+def netrc_gpg(netrc_file_gpg):
+    temp_file = tempfile.NamedTemporaryFile(delete = False)
+    try:
+        cmd = ['gpg', '-d', netrc_file_gpg];
+        temp_file.write(
+            subprocess.run(cmd, capture_output=True).stdout
+        )
+        temp_file.close()
+        return netrc.netrc(temp_file.name)
+    finally:
+        os.remove(temp_file.name)
+
 
 def get_login_password(site_name="github.com",
                        netrc_file="~/.netrc",
                        git_credential_file="~/.git-credentials"):
     """Read a .netrc file and return login/password for LWN."""
+    netrc_file_gpg = os.path.expanduser('%s.gpg' % netrc_file)
+
+    if os.path.isfile(netrc_file_gpg):
+        n = netrc_gpg(netrc_file_gpg)
+        if site_name in n.hosts:
+            return n.hosts[site_name][0], n.hosts[site_name][2]
     try:
         n = netrc.netrc(os.path.expanduser(netrc_file))
     except OSError:
